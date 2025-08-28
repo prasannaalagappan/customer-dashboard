@@ -36,14 +36,26 @@ if not st.session_state.logged_in:
 # ------------------ DASHBOARD ------------------
 st.title(f"📊 Advanced Customer Dashboard")
 
-uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
+uploaded_file = st.file_uploader("Upload CSV file", type=["csv"], key="csv_uploader")
 
 if uploaded_file:
-    df = pd.read_csv(uploaded_file)
+    # Check for empty file
+    uploaded_file.seek(0, io.SEEK_END)
+    if uploaded_file.tell() == 0:
+        st.error("❌ The uploaded CSV file is empty. Please upload a valid CSV file.")
+        st.stop()
+    uploaded_file.seek(0)
+
+    try:
+        df = pd.read_csv(uploaded_file)
+    except pd.errors.EmptyDataError:
+        st.error("❌ The uploaded CSV file has no data or is invalid.")
+        st.stop()
+
     st.write("### Preview of Data")
     st.dataframe(df.head())
 
-    # ------------------ Identify Numeric Columns ------------------
+    # ------------------ Identify Numeric and Categorical Columns ------------------
     numeric_df = df.apply(pd.to_numeric, errors='coerce')
     numeric_cols = numeric_df.dropna(axis=1, how='all').columns.tolist()
     categorical_cols = df.select_dtypes(exclude="number").columns.tolist()
@@ -65,15 +77,28 @@ if uploaded_file:
     # ------------------ Filters ------------------
     st.write("### 🔍 Filter Data")
     filtered_df = df.copy()
-    for col in numeric_cols:
+
+    # Numeric filters
+    for idx, col in enumerate(numeric_cols):
         col_series = numeric_df[col].dropna()
         if not col_series.empty:
             min_val, max_val = float(col_series.min()), float(col_series.max())
-            selected_range = st.slider(f"Filter {col}", min_val, max_val, (min_val, max_val))
+            selected_range = st.slider(
+                f"Filter {col}",
+                min_val, max_val, (min_val, max_val),
+                key=f"num_filter_{idx}"
+            )
             filtered_df = filtered_df[(numeric_df[col] >= selected_range[0]) & (numeric_df[col] <= selected_range[1])]
-    for col in categorical_cols:
+
+    # Categorical filters
+    for idx, col in enumerate(categorical_cols):
         if df[col].nunique() <= 20:
-            selected_vals = st.multiselect(f"Filter {col}", options=df[col].unique(), default=list(df[col].unique()))
+            selected_vals = st.multiselect(
+                f"Filter {col}",
+                options=df[col].unique(),
+                default=list(df[col].unique()),
+                key=f"cat_filter_{idx}"
+            )
             filtered_df = filtered_df[filtered_df[col].isin(selected_vals)]
 
     st.write("### Filtered Data Preview")
@@ -81,24 +106,24 @@ if uploaded_file:
 
     # ------------------ Visualizations ------------------
     st.write("### 📈 Visualization Options")
-    chart_type = st.selectbox("Select chart type", ["Bar Chart", "Correlation Heatmap", "Scatter Plot", "Boxplot", "Pie Chart"])
+    chart_type = st.selectbox("Select chart type", ["Bar Chart", "Correlation Heatmap", "Scatter Plot", "Boxplot", "Pie Chart"], key="chart_type")
 
     safe_numeric_cols = [col for col in numeric_cols if filtered_df[col].notna().any()]
     safe_categorical_cols = [col for col in categorical_cols if filtered_df[col].notna().any()]
 
     if chart_type == "Bar Chart" and safe_numeric_cols:
-        col_to_plot = st.selectbox("Select numeric column for Bar Chart", safe_numeric_cols)
+        col_to_plot = st.selectbox("Select numeric column for Bar Chart", safe_numeric_cols, key="bar_col")
         st.bar_chart(filtered_df[col_to_plot].dropna())
     elif chart_type == "Correlation Heatmap" and len(safe_numeric_cols) >= 2:
         fig, ax = plt.subplots()
         sns.heatmap(filtered_df[safe_numeric_cols].corr(), annot=True, cmap="coolwarm", ax=ax)
         st.pyplot(fig)
     elif chart_type == "Scatter Plot" and len(safe_numeric_cols) >= 2:
-        x_col = st.selectbox("X axis", safe_numeric_cols, index=0)
-        y_col = st.selectbox("Y axis", safe_numeric_cols, index=1)
+        x_col = st.selectbox("X axis", safe_numeric_cols, index=0, key="scatter_x")
+        y_col = st.selectbox("Y axis", safe_numeric_cols, index=1, key="scatter_y")
         hue_col = None
         if safe_categorical_cols:
-            hue_col = st.selectbox("Optional categorical column for color", [None]+safe_categorical_cols)
+            hue_col = st.selectbox("Optional categorical column for color", [None]+safe_categorical_cols, key="scatter_hue")
         fig, ax = plt.subplots()
         if hue_col:
             sns.scatterplot(data=filtered_df, x=x_col, y=y_col, hue=hue_col, ax=ax)
@@ -106,12 +131,12 @@ if uploaded_file:
             sns.scatterplot(data=filtered_df, x=x_col, y=y_col, ax=ax)
         st.pyplot(fig)
     elif chart_type == "Boxplot" and safe_numeric_cols:
-        col_to_plot = st.selectbox("Select numeric column for Boxplot", safe_numeric_cols)
+        col_to_plot = st.selectbox("Select numeric column for Boxplot", safe_numeric_cols, key="box_col")
         fig, ax = plt.subplots()
         sns.boxplot(y=filtered_df[col_to_plot].dropna(), ax=ax)
         st.pyplot(fig)
     elif chart_type == "Pie Chart" and safe_categorical_cols:
-        col_to_plot = st.selectbox("Select categorical column for Pie Chart", safe_categorical_cols)
+        col_to_plot = st.selectbox("Select categorical column for Pie Chart", safe_categorical_cols, key="pie_col")
         pie_data = filtered_df[col_to_plot].value_counts()
         fig, ax = plt.subplots()
         ax.pie(pie_data.values, labels=pie_data.index, autopct='%1.1f%%')
@@ -120,8 +145,8 @@ if uploaded_file:
     # ------------------ Predictive Feature ------------------
     st.write("### 🤖 Predict a Numeric Column (Regression)")
     if len(safe_numeric_cols) >= 2:
-        target_col = st.selectbox("Select target column to predict", safe_numeric_cols)
-        feature_cols = st.multiselect("Select feature columns", [c for c in safe_numeric_cols if c != target_col])
+        target_col = st.selectbox("Select target column to predict", safe_numeric_cols, key="reg_target")
+        feature_cols = st.multiselect("Select feature columns", [c for c in safe_numeric_cols if c != target_col], key="reg_features")
         if st.button("Train & Predict") and feature_cols:
             X = filtered_df[feature_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
             y = filtered_df[target_col].apply(pd.to_numeric, errors='coerce').fillna(0)
@@ -137,33 +162,26 @@ if uploaded_file:
     else:
         st.info("⚠️ Not enough numeric columns for regression prediction.")
 
-# ------------------ Function to convert filtered DataFrame to Excel ------------------
-def convert_df_to_excel(df):
-    towrite = io.BytesIO()
-    with pd.ExcelWriter(towrite, engine="xlsxwriter") as writer:
-        df.to_excel(writer, index=False, sheet_name="FilteredData")
-    towrite.seek(0)
-    return towrite
-uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
+    # ------------------ Download Filtered Data ------------------
+    st.write("### 📥 Download Filtered Data as Excel")
 
-if uploaded_file:
-    # Check if the file has content
-    uploaded_file.seek(0, io.SEEK_END)  # Move pointer to the end
-    file_size = uploaded_file.tell()
-    uploaded_file.seek(0)  # Reset pointer to start
-    if file_size == 0:
-        st.error("❌ The uploaded CSV file is empty. Please upload a valid CSV file.")
-    else:
-        try:
-            df = pd.read_csv(uploaded_file)
-        except pd.errors.EmptyDataError:
-            st.error("❌ The uploaded CSV file has no data or is invalid.")
-        else:
-            st.write("### Preview of Data")
-            st.dataframe(df.head())
+    def convert_df_to_excel(df):
+        towrite = io.BytesIO()
+        with pd.ExcelWriter(towrite, engine="xlsxwriter") as writer:
+            df.to_excel(writer, index=False, sheet_name="FilteredData")
+        towrite.seek(0)
+        return towrite
 
-            # ------------------ Rest of your filtering, visualization, and download code ------------------
+    excel_data = convert_df_to_excel(filtered_df)
+    st.download_button(
+        label="Download Filtered Data",
+        data=excel_data,
+        file_name="customer_data_filtered.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
+else:
+    st.info("📁 Upload a CSV file to start analyzing.")
 
 # ------------------ LOGOUT ------------------
 if st.session_state.logged_in:
@@ -171,7 +189,3 @@ if st.session_state.logged_in:
         st.session_state.logged_in = False
         st.session_state.user_email = None
         st.experimental_rerun()
-
-
-
-
