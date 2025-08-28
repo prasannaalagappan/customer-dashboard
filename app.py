@@ -144,32 +144,26 @@ def convert_df_to_excel(df):
         df.to_excel(writer, index=False, sheet_name="FilteredData")
     towrite.seek(0)
     return towrite
+uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 
 if uploaded_file:
-    df = pd.read_csv(uploaded_file)
+    # Check if the file has content
+    uploaded_file.seek(0, io.SEEK_END)  # Move pointer to the end
+    file_size = uploaded_file.tell()
+    uploaded_file.seek(0)  # Reset pointer to start
+    if file_size == 0:
+        st.error("❌ The uploaded CSV file is empty. Please upload a valid CSV file.")
+    else:
+        try:
+            df = pd.read_csv(uploaded_file)
+        except pd.errors.EmptyDataError:
+            st.error("❌ The uploaded CSV file has no data or is invalid.")
+        else:
+            st.write("### Preview of Data")
+            st.dataframe(df.head())
 
-    # ... all your filtering logic ...
-    filtered_df = df.copy()
-    # Apply numeric and categorical filters here (your existing code)
-    # filtered_df now contains exactly what the user sees
+            # ------------------ Rest of your filtering, visualization, and download code ------------------
 
-    # ------------------ Function to convert filtered DataFrame to Excel ------------------
-    def convert_df_to_excel(df):
-        towrite = io.BytesIO()
-        with pd.ExcelWriter(towrite, engine="xlsxwriter") as writer:
-            df.to_excel(writer, index=False, sheet_name="FilteredData")
-        towrite.seek(0)
-        return towrite
-
-    # ------------------ Download Filtered Data ------------------
-    st.write("### 📥 Download Filtered Data as Excel")
-    excel_data = convert_df_to_excel(filtered_df)
-    st.download_button(
-        label="Download Filtered Data",
-        data=excel_data,
-        file_name="customer_data_filtered.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
 
 # ------------------ LOGOUT ------------------
 if st.session_state.logged_in:
@@ -177,6 +171,7 @@ if st.session_state.logged_in:
         st.session_state.logged_in = False
         st.session_state.user_email = None
         st.experimental_rerun()
+
 
 
 
