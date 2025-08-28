@@ -26,7 +26,6 @@ if not st.session_state.logged_in:
         if email in USER_CREDENTIALS and USER_CREDENTIALS[email] == password:
             st.session_state.logged_in = True
             st.success("✅ Login successful!")
-            st.experimental_rerun()
         else:
             st.error("❌ Invalid email or password")
     st.stop()
@@ -67,3 +66,4 @@ if uploaded_file:
         file_name="customer_data.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
