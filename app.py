@@ -137,21 +137,25 @@ if uploaded_file:
     else:
         st.info("⚠️ Not enough numeric columns for regression prediction.")
 
-    # ------------------ Download Filtered Data ------------------
-    st.write("### 📥 Download Filtered Data as Excel")
+   # ------------------ Download Filtered Data ------------------
+st.write("### 📥 Download Filtered Data as Excel")
+
+# Use the filtered_df after all filters applied
+def convert_df_to_excel(df):
     towrite = io.BytesIO()
     with pd.ExcelWriter(towrite, engine="xlsxwriter") as writer:
-        filtered_df.to_excel(writer, index=False, sheet_name="FilteredData")
+        df.to_excel(writer, index=False, sheet_name="FilteredData")
     towrite.seek(0)
-    st.download_button(
-        label="Download Filtered Data",
-        data=towrite,
-        file_name="customer_data_filtered.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    return towrite
 
-else:
-    st.info("📁 Upload a CSV file to start analyzing.")
+excel_data = convert_df_to_excel(filtered_df)
+
+st.download_button(
+    label="Download Filtered Data",
+    data=excel_data,
+    file_name="customer_data_filtered.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
 
 # ------------------ LOGOUT ------------------
 if st.session_state.logged_in:
@@ -159,3 +163,4 @@ if st.session_state.logged_in:
         st.session_state.logged_in = False
         st.session_state.user_email = None
         st.experimental_rerun()
+
