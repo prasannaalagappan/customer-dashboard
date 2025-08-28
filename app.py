@@ -52,10 +52,17 @@ if uploaded_file:
     st.bar_chart(df.select_dtypes(include="number").iloc[:, 0])
 
     # Correlation Heatmap
-    st.write("### Correlation Heatmap")
+st.write("### Correlation Heatmap")
+
+# Select only numeric columns
+numeric_df = df.select_dtypes(include="number")
+
+if not numeric_df.empty:
     fig, ax = plt.subplots()
-    sns.heatmap(df.corr(), annot=True, cmap="coolwarm", ax=ax)
+    sns.heatmap(numeric_df.corr(), annot=True, cmap="coolwarm", ax=ax)
     st.pyplot(fig)
+else:
+    st.info("⚠️ No numeric columns available for correlation heatmap.")
 
     # Download as Excel
     towrite = io.BytesIO()
@@ -75,3 +82,4 @@ if st.session_state.logged_in:
     if st.button("Logout"):
         st.session_state.logged_in = False
         st.experimental_rerun()
+
