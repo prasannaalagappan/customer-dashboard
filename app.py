@@ -137,10 +137,7 @@ if uploaded_file:
     else:
         st.info("⚠️ Not enough numeric columns for regression prediction.")
 
-   # ------------------ Download Filtered Data ------------------
-st.write("### 📥 Download Filtered Data as Excel")
-
-# Use the filtered_df after all filters applied
+# ------------------ Function to convert filtered DataFrame to Excel ------------------
 def convert_df_to_excel(df):
     towrite = io.BytesIO()
     with pd.ExcelWriter(towrite, engine="xlsxwriter") as writer:
@@ -148,6 +145,10 @@ def convert_df_to_excel(df):
     towrite.seek(0)
     return towrite
 
+# ------------------ Download Filtered Data ------------------
+st.write("### 📥 Download Filtered Data as Excel")
+
+# Make sure filtered_df already exists after all filters
 excel_data = convert_df_to_excel(filtered_df)
 
 st.download_button(
@@ -163,4 +164,5 @@ if st.session_state.logged_in:
         st.session_state.logged_in = False
         st.session_state.user_email = None
         st.experimental_rerun()
+
 
