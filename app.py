@@ -145,18 +145,31 @@ def convert_df_to_excel(df):
     towrite.seek(0)
     return towrite
 
-# ------------------ Download Filtered Data ------------------
-st.write("### 📥 Download Filtered Data as Excel")
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
 
-# Make sure filtered_df already exists after all filters
-excel_data = convert_df_to_excel(filtered_df)
+    # ... all your filtering logic ...
+    filtered_df = df.copy()
+    # Apply numeric and categorical filters here (your existing code)
+    # filtered_df now contains exactly what the user sees
 
-st.download_button(
-    label="Download Filtered Data",
-    data=excel_data,
-    file_name="customer_data_filtered.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+    # ------------------ Function to convert filtered DataFrame to Excel ------------------
+    def convert_df_to_excel(df):
+        towrite = io.BytesIO()
+        with pd.ExcelWriter(towrite, engine="xlsxwriter") as writer:
+            df.to_excel(writer, index=False, sheet_name="FilteredData")
+        towrite.seek(0)
+        return towrite
+
+    # ------------------ Download Filtered Data ------------------
+    st.write("### 📥 Download Filtered Data as Excel")
+    excel_data = convert_df_to_excel(filtered_df)
+    st.download_button(
+        label="Download Filtered Data",
+        data=excel_data,
+        file_name="customer_data_filtered.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 # ------------------ LOGOUT ------------------
 if st.session_state.logged_in:
@@ -164,5 +177,6 @@ if st.session_state.logged_in:
         st.session_state.logged_in = False
         st.session_state.user_email = None
         st.experimental_rerun()
+
 
 
