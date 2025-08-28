@@ -43,31 +43,40 @@ if uploaded_file:
     st.write("### Preview of Data")
     st.dataframe(df.head())
 
-    # ------------------ KPI Summary ------------------
-    st.write("### 📌 Key Metrics")
-    numeric_cols = df.select_dtypes(include="number").columns.tolist()
+    # ------------------ Identify Numeric Columns ------------------
+    # Only truly numeric columns (skip phone numbers or invalid entries)
+    numeric_df = df.apply(pd.to_numeric, errors='coerce')  # convert invalid values to NaN
+    numeric_cols = numeric_df.dropna(axis=1, how='all').columns.tolist()  # keep columns with at least some valid numeric data
     categorical_cols = df.select_dtypes(exclude="number").columns.tolist()
 
-    kpi_cols = st.multiselect("Select numeric columns for KPI summary", numeric_cols, default=numeric_cols[:3])
-    kpi_data = df[kpi_cols] if kpi_cols else pd.DataFrame()
-    if not kpi_data.empty:
+    # ------------------ KPI Summary ------------------
+    st.write("### 📌 Key Metrics")
+    if numeric_cols:
         col1, col2, col3 = st.columns(3)
-        for idx, col_name in enumerate(kpi_data.columns[:3]):
+        for idx, col_name in enumerate(numeric_cols[:3]):
             col = [col1, col2, col3][idx]
-            col.metric(label=col_name, value=round(kpi_data[col_name].sum(),2),
-                       delta=f"Mean: {round(kpi_data[col_name].mean(),2)}")
+            col.metric(
+                label=col_name,
+                value=round(numeric_df[col_name].sum(skipna=True), 2),
+                delta=f"Mean: {round(numeric_df[col_name].mean(skipna=True), 2)}"
+            )
+    else:
+        st.info("⚠️ No numeric columns available for KPIs.")
 
-    # ------------------ Interactive Filters ------------------
+    # ------------------ Filters ------------------
     st.write("### 🔍 Filter Data")
     filtered_df = df.copy()
     for col in numeric_cols:
-        min_val, max_val = float(df[col].min()), float(df[col].max())
-        selected_range = st.slider(f"Filter {col}", min_val, max_val, (min_val, max_val))
-        filtered_df = filtered_df[(filtered_df[col] >= selected_range[0]) & (filtered_df[col] <= selected_range[1])]
+        col_series = numeric_df[col].dropna()
+        if not col_series.empty:
+            min_val, max_val = float(col_series.min()), float(col_series.max())
+            selected_range = st.slider(f"Filter {col}", min_val, max_val, (min_val, max_val))
+            filtered_df = filtered_df[(numeric_df[col] >= selected_range[0]) & (numeric_df[col] <= selected_range[1])]
     for col in categorical_cols:
-        if df[col].nunique() <= 20:  # avoid too many categories
+        if df[col].nunique() <= 20:
             selected_vals = st.multiselect(f"Filter {col}", options=df[col].unique(), default=list(df[col].unique()))
             filtered_df = filtered_df[filtered_df[col].isin(selected_vals)]
+
     st.write("### Filtered Data Preview")
     st.dataframe(filtered_df.head())
 
@@ -75,32 +84,36 @@ if uploaded_file:
     st.write("### 📈 Visualization Options")
     chart_type = st.selectbox("Select chart type", ["Bar Chart", "Correlation Heatmap", "Scatter Plot", "Boxplot", "Pie Chart"])
 
-    if chart_type == "Bar Chart" and numeric_cols:
-        col_to_plot = st.selectbox("Select numeric column for Bar Chart", numeric_cols)
-        st.bar_chart(filtered_df[col_to_plot])
-    elif chart_type == "Correlation Heatmap" and numeric_cols:
+    # Only allow charts on proper numeric/categorical data
+    safe_numeric_cols = [col for col in numeric_cols if filtered_df[col].notna().any()]
+    safe_categorical_cols = [col for col in categorical_cols if filtered_df[col].notna().any()]
+
+    if chart_type == "Bar Chart" and safe_numeric_cols:
+        col_to_plot = st.selectbox("Select numeric column for Bar Chart", safe_numeric_cols)
+        st.bar_chart(filtered_df[col_to_plot].dropna())
+    elif chart_type == "Correlation Heatmap" and len(safe_numeric_cols) >= 2:
         fig, ax = plt.subplots()
-        sns.heatmap(filtered_df[numeric_cols].corr(), annot=True, cmap="coolwarm", ax=ax)
+        sns.heatmap(filtered_df[safe_numeric_cols].corr(), annot=True, cmap="coolwarm", ax=ax)
         st.pyplot(fig)
-    elif chart_type == "Scatter Plot" and len(numeric_cols) >= 2:
-        x_col = st.selectbox("X axis", numeric_cols, index=0)
-        y_col = st.selectbox("Y axis", numeric_cols, index=1)
+    elif chart_type == "Scatter Plot" and len(safe_numeric_cols) >= 2:
+        x_col = st.selectbox("X axis", safe_numeric_cols, index=0)
+        y_col = st.selectbox("Y axis", safe_numeric_cols, index=1)
         hue_col = None
-        if categorical_cols:
-            hue_col = st.selectbox("Optional categorical column for color", [None]+categorical_cols)
+        if safe_categorical_cols:
+            hue_col = st.selectbox("Optional categorical column for color", [None]+safe_categorical_cols)
         fig, ax = plt.subplots()
         if hue_col:
             sns.scatterplot(data=filtered_df, x=x_col, y=y_col, hue=hue_col, ax=ax)
         else:
             sns.scatterplot(data=filtered_df, x=x_col, y=y_col, ax=ax)
         st.pyplot(fig)
-    elif chart_type == "Boxplot" and numeric_cols:
-        col_to_plot = st.selectbox("Select numeric column for Boxplot", numeric_cols)
+    elif chart_type == "Boxplot" and safe_numeric_cols:
+        col_to_plot = st.selectbox("Select numeric column for Boxplot", safe_numeric_cols)
         fig, ax = plt.subplots()
-        sns.boxplot(y=filtered_df[col_to_plot], ax=ax)
+        sns.boxplot(y=filtered_df[col_to_plot].dropna(), ax=ax)
         st.pyplot(fig)
-    elif chart_type == "Pie Chart" and categorical_cols:
-        col_to_plot = st.selectbox("Select categorical column for Pie Chart", categorical_cols)
+    elif chart_type == "Pie Chart" and safe_categorical_cols:
+        col_to_plot = st.selectbox("Select categorical column for Pie Chart", safe_categorical_cols)
         pie_data = filtered_df[col_to_plot].value_counts()
         fig, ax = plt.subplots()
         ax.pie(pie_data.values, labels=pie_data.index, autopct='%1.1f%%')
@@ -108,25 +121,26 @@ if uploaded_file:
 
     # ------------------ Predictive Feature ------------------
     st.write("### 🤖 Predict a Numeric Column (Regression)")
-    if numeric_cols:
-        target_col = st.selectbox("Select target column to predict", numeric_cols)
-        feature_cols = st.multiselect("Select feature columns", [c for c in numeric_cols if c != target_col])
+    if len(safe_numeric_cols) >= 2:
+        target_col = st.selectbox("Select target column to predict", safe_numeric_cols)
+        feature_cols = st.multiselect("Select feature columns", [c for c in safe_numeric_cols if c != target_col])
         if st.button("Train & Predict") and feature_cols:
-            X = filtered_df[feature_cols]
-            y = filtered_df[target_col]
+            X = filtered_df[feature_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
+            y = filtered_df[target_col].apply(pd.to_numeric, errors='coerce').fillna(0)
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
             model = LinearRegression()
             model.fit(X_train, y_train)
             predictions = model.predict(X_test)
             mse = mean_squared_error(y_test, predictions)
             st.success(f"Model trained! Mean Squared Error: {round(mse, 2)}")
-            st.write("### Sample Predictions")
             pred_df = X_test.copy()
             pred_df[f"{target_col}_predicted"] = predictions
             st.dataframe(pred_df.head())
+    else:
+        st.info("⚠️ Not enough numeric columns for regression prediction.")
 
     # ------------------ Download Filtered Data ------------------
-    st.write("### 📥 Download Data")
+    st.write("### 📥 Download Filtered Data")
     towrite = io.BytesIO()
     with pd.ExcelWriter(towrite, engine="xlsxwriter") as writer:
         filtered_df.to_excel(writer, index=False, sheet_name="FilteredData")
