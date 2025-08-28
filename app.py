@@ -11,7 +11,7 @@ USER_CREDENTIALS = {
     "customer2@example.com": "secure456"
 }
 
-# Session state to track login
+# Initialize session state
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
@@ -28,9 +28,10 @@ if not st.session_state.logged_in:
             st.success("✅ Login successful!")
         else:
             st.error("❌ Invalid email or password")
-     if not st.session_state.logged_in:
-        st.stop()
 
+    # Stop execution until login is successful
+    if not st.session_state.logged_in:
+        st.stop()
 
 # ------------------ DASHBOARD ------------------
 st.title("📊 Customer Data Dashboard")
@@ -69,4 +70,8 @@ if uploaded_file:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-
+# ------------------ LOGOUT BUTTON ------------------
+if st.session_state.logged_in:
+    if st.button("Logout"):
+        st.session_state.logged_in = False
+        st.experimental_rerun()
