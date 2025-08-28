@@ -9,8 +9,8 @@ from sklearn.metrics import mean_squared_error
 
 # ------------------ USER LOGIN ------------------
 USER_CREDENTIALS = {
-    "customer1@example.com": "password123",
-    "customer2@example.com": "secure456"
+    "prasanna1@example.com": "password123",
+    "prasanna2@example.com": "secure456"
 }
 
 if "logged_in" not in st.session_state:
@@ -34,7 +34,7 @@ if not st.session_state.logged_in:
         st.stop()
 
 # ------------------ DASHBOARD ------------------
-st.title(f"📊 Advanced Customer Dashboard - {st.session_state.user_email}")
+st.title(f"📊 Advanced Customer Dashboard")
 
 uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 
@@ -161,3 +161,4 @@ if st.session_state.logged_in:
         st.session_state.logged_in = False
         st.session_state.user_email = None
         st.experimental_rerun()
+
