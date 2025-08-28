@@ -44,9 +44,8 @@ if uploaded_file:
     st.dataframe(df.head())
 
     # ------------------ Identify Numeric Columns ------------------
-    # Only truly numeric columns (skip phone numbers or invalid entries)
-    numeric_df = df.apply(pd.to_numeric, errors='coerce')  # convert invalid values to NaN
-    numeric_cols = numeric_df.dropna(axis=1, how='all').columns.tolist()  # keep columns with at least some valid numeric data
+    numeric_df = df.apply(pd.to_numeric, errors='coerce')
+    numeric_cols = numeric_df.dropna(axis=1, how='all').columns.tolist()
     categorical_cols = df.select_dtypes(exclude="number").columns.tolist()
 
     # ------------------ KPI Summary ------------------
@@ -84,7 +83,6 @@ if uploaded_file:
     st.write("### 📈 Visualization Options")
     chart_type = st.selectbox("Select chart type", ["Bar Chart", "Correlation Heatmap", "Scatter Plot", "Boxplot", "Pie Chart"])
 
-    # Only allow charts on proper numeric/categorical data
     safe_numeric_cols = [col for col in numeric_cols if filtered_df[col].notna().any()]
     safe_categorical_cols = [col for col in categorical_cols if filtered_df[col].notna().any()]
 
@@ -139,17 +137,14 @@ if uploaded_file:
     else:
         st.info("⚠️ Not enough numeric columns for regression prediction.")
 
-    # ------------------ Download Filtered Data ------------------
-    st.write("### 📥 Download Filtered Data")
-    towrite = io.BytesIO()
-    with pd.ExcelWriter(towrite, engine="xlsxwriter") as writer:
-        filtered_df.to_excel(writer, index=False, sheet_name="FilteredData")
-    towrite.seek(0)
+    # ------------------ Download Full Original Data ------------------
+    st.write("### 📥 Download Full Original CSV")
+    csv_full = df.to_csv(index=False).encode('utf-8')
     st.download_button(
-        label="Download Filtered Data as Excel",
-        data=towrite,
-        file_name="customer_data_filtered.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        label="Download Full CSV",
+        data=csv_full,
+        file_name="customer_data_full.csv",
+        mime="text/csv"
     )
 
 else:
@@ -161,4 +156,3 @@ if st.session_state.logged_in:
         st.session_state.logged_in = False
         st.session_state.user_email = None
         st.experimental_rerun()
-
