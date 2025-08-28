@@ -137,14 +137,17 @@ if uploaded_file:
     else:
         st.info("⚠️ Not enough numeric columns for regression prediction.")
 
-    # ------------------ Download Full Original Data ------------------
-    st.write("### 📥 Download Full Original CSV")
-    csv_full = df.to_csv(index=False).encode('utf-8')
+    # ------------------ Download Filtered Data ------------------
+    st.write("### 📥 Download Filtered Data as Excel")
+    towrite = io.BytesIO()
+    with pd.ExcelWriter(towrite, engine="xlsxwriter") as writer:
+        filtered_df.to_excel(writer, index=False, sheet_name="FilteredData")
+    towrite.seek(0)
     st.download_button(
-        label="Download Full CSV",
-        data=csv_full,
-        file_name="customer_data_full.csv",
-        mime="text/csv"
+        label="Download Filtered Data",
+        data=towrite,
+        file_name="customer_data_filtered.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
 else:
