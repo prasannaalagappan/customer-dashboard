@@ -28,7 +28,9 @@ if not st.session_state.logged_in:
             st.success("✅ Login successful!")
         else:
             st.error("❌ Invalid email or password")
-    st.stop()
+     if not st.session_state.logged_in:
+        st.stop()
+
 
 # ------------------ DASHBOARD ------------------
 st.title("📊 Customer Data Dashboard")
@@ -66,4 +68,5 @@ if uploaded_file:
         file_name="customer_data.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
