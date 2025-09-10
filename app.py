@@ -13,6 +13,11 @@ USER_CREDENTIALS = {
     "prasanna2@example.com": "secure456"
 }
 
+st.set_page_config(page_title="Customer Dashboard", layout="wide")
+
+# Optional logo
+st.sidebar.image("logo.png", width=150, caption="Your Brand Logo")
+
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "user_email" not in st.session_state:
@@ -20,6 +25,8 @@ if "user_email" not in st.session_state:
 
 if not st.session_state.logged_in:
     st.title("🔐 Customer Dashboard Login")
+    st.write("Upload your data and gain instant insights.")
+
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
 
@@ -30,16 +37,15 @@ if not st.session_state.logged_in:
             st.success(f"✅ Login successful! Welcome {email}")
         else:
             st.error("❌ Invalid email or password")
-    if not st.session_state.logged_in:
-        st.stop()
+    st.stop()
 
 # ------------------ DASHBOARD ------------------
 st.title(f"📊 Advanced Customer Dashboard")
+st.caption("Analyze your customer data, visualize trends, and run simple predictions.")
 
-uploaded_file = st.file_uploader("Upload CSV file", type=["csv"], key="csv_uploader")
+uploaded_file = st.file_uploader("📁 Upload a CSV file to begin", type=["csv"], key="csv_uploader")
 
 if uploaded_file:
-    # Check for empty file
     uploaded_file.seek(0, io.SEEK_END)
     if uploaded_file.tell() == 0:
         st.error("❌ The uploaded CSV file is empty. Please upload a valid CSV file.")
@@ -52,10 +58,9 @@ if uploaded_file:
         st.error("❌ The uploaded CSV file has no data or is invalid.")
         st.stop()
 
-    st.write("### Preview of Data")
+    st.write("### 👀 Preview of Data")
     st.dataframe(df.head())
 
-    # ------------------ Identify Numeric and Categorical Columns ------------------
     numeric_df = df.apply(pd.to_numeric, errors='coerce')
     numeric_cols = numeric_df.dropna(axis=1, how='all').columns.tolist()
     categorical_cols = df.select_dtypes(exclude="number").columns.tolist()
@@ -78,7 +83,6 @@ if uploaded_file:
     st.write("### 🔍 Filter Data")
     filtered_df = df.copy()
 
-    # Numeric filters
     for idx, col in enumerate(numeric_cols):
         col_series = numeric_df[col].dropna()
         if not col_series.empty:
@@ -90,7 +94,6 @@ if uploaded_file:
             )
             filtered_df = filtered_df[(numeric_df[col] >= selected_range[0]) & (numeric_df[col] <= selected_range[1])]
 
-    # Categorical filters
     for idx, col in enumerate(categorical_cols):
         if df[col].nunique() <= 20:
             selected_vals = st.multiselect(
@@ -114,10 +117,12 @@ if uploaded_file:
     if chart_type == "Bar Chart" and safe_numeric_cols:
         col_to_plot = st.selectbox("Select numeric column for Bar Chart", safe_numeric_cols, key="bar_col")
         st.bar_chart(filtered_df[col_to_plot].dropna())
+
     elif chart_type == "Correlation Heatmap" and len(safe_numeric_cols) >= 2:
         fig, ax = plt.subplots()
         sns.heatmap(filtered_df[safe_numeric_cols].corr(), annot=True, cmap="coolwarm", ax=ax)
         st.pyplot(fig)
+
     elif chart_type == "Scatter Plot" and len(safe_numeric_cols) >= 2:
         x_col = st.selectbox("X axis", safe_numeric_cols, index=0, key="scatter_x")
         y_col = st.selectbox("Y axis", safe_numeric_cols, index=1, key="scatter_y")
@@ -130,11 +135,13 @@ if uploaded_file:
         else:
             sns.scatterplot(data=filtered_df, x=x_col, y=y_col, ax=ax)
         st.pyplot(fig)
+
     elif chart_type == "Boxplot" and safe_numeric_cols:
         col_to_plot = st.selectbox("Select numeric column for Boxplot", safe_numeric_cols, key="box_col")
         fig, ax = plt.subplots()
         sns.boxplot(y=filtered_df[col_to_plot].dropna(), ax=ax)
         st.pyplot(fig)
+
     elif chart_type == "Pie Chart" and safe_categorical_cols:
         col_to_plot = st.selectbox("Select categorical column for Pie Chart", safe_categorical_cols, key="pie_col")
         pie_data = filtered_df[col_to_plot].value_counts()
@@ -164,7 +171,6 @@ if uploaded_file:
 
     # ------------------ Download Filtered Data ------------------
     st.write("### 📥 Download Filtered Data as Excel")
-
     def convert_df_to_excel(df):
         towrite = io.BytesIO()
         with pd.ExcelWriter(towrite, engine="xlsxwriter") as writer:
